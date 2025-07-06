@@ -133,9 +133,13 @@ class MnemonicApp(QWidget):
         layout.addWidget(self.tabs)
         self.setLayout(layout)
 
-if __name__ == "__main__":
+
+def main():
     create_table()
     app = QApplication(sys.argv)
     window = MnemonicApp()
     window.show()
     sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
