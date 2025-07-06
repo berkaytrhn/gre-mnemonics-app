@@ -1,0 +1,29 @@
+[project]
+name = "gre-memonics-app"
+version = "0.0.1"
+description = "GRE Vocabulary Learning App with Mnemonics"
+readme = "README.md"
+authors = [
+  { name = "berkaytrhn", email = "berkaytrhn@gmail.com" }
+]
+license = { text = "MIT" }
+keywords = ["gre vocabulary", "mnemonics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+    "altgraph=0.17.4",
+    "packaging=25.0",
+    "pefile=2023.2.7",
+    "pyinstaller=6.14.2",
+    "pyinstaller-hooks-contrib=2025.5",
+    "PyQt5=5.15.11",
+    "PyQt5-Qt5=5.15.2",
+    "PyQt5_sip=12.17.0",
+    "pywin32-ctypes=0.2.3"
+]
+
+[project.urls]
+"Source" = "https://github.com/berkaytrhn/gre-memonics-app"
