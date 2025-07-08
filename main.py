@@ -17,16 +17,21 @@ def create_table():
             story TEXT NOT NULL
         )
     ''')
+    # Add note column if it doesn't exist
+    cursor.execute("PRAGMA table_info(mnemonic_words)")
+    columns = [col[1] for col in cursor.fetchall()]
+    if 'note' not in columns:
+        cursor.execute("ALTER TABLE mnemonic_words ADD COLUMN note TEXT")
     conn.commit()
     conn.close()
 
-def save_mnemonic(word, story):
-    conn = sqlite3.connect('mnemonic.db')
+def save_mnemonic(word, story, note):
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO mnemonic_words (word, story) VALUES (?, ?)",
-            (word, story)
+            "INSERT INTO mnemonic_words (word, story, note) VALUES (?, ?, ?)",
+            (word, story, note)
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -37,11 +42,11 @@ def save_mnemonic(word, story):
 def get_mnemonic_story(word):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('SELECT story FROM mnemonic_words WHERE word = ?', (word,))
+    cursor.execute('SELECT story, note FROM mnemonic_words WHERE word = ?', (word,))
     row = cursor.fetchone()
     conn.close()
     if row:
-        return row[0]
+        return row  # (story, note)
     return None
 
 class InsertTab(QWidget):
@@ -54,6 +59,9 @@ class InsertTab(QWidget):
         self.story_label = QLabel("Mnemonic Story:")
         self.story_input = QTextEdit()
 
+        self.note_label = QLabel("Note:")
+        self.note_input = QTextEdit()
+
         self.submit_btn = QPushButton("Submit")
         self.submit_btn.clicked.connect(self.submit_form)
 
@@ -62,17 +70,20 @@ class InsertTab(QWidget):
         layout.addWidget(self.word_input)
         layout.addWidget(self.story_label)
         layout.addWidget(self.story_input)
+        layout.addWidget(self.note_label)
+        layout.addWidget(self.note_input)
         layout.addWidget(self.submit_btn)
         self.setLayout(layout)
 
     def submit_form(self):
         word = self.word_input.text().strip()
         story = self.story_input.toPlainText().strip()
+        note = self.note_input.toPlainText().strip()
         if not word or not story:
             QMessageBox.warning(self, "Input Error", "Please enter both word and story.")
             return
         try:
-            save_mnemonic(word, story)
+            save_mnemonic(word, story, note)
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))
             return
@@ -80,6 +91,7 @@ class InsertTab(QWidget):
         QMessageBox.information(self, "Success", f"Mnemonic for '{word}' saved!")
         self.word_input.clear()
         self.story_input.clear()
+        self.note_input.clear()
 
 class SearchTab(QWidget):
     def __init__(self):
@@ -110,9 +122,13 @@ class SearchTab(QWidget):
             QMessageBox.warning(self, "Input Error", "Please enter a word to search.")
             return
         
-        story = get_mnemonic_story(word)
-        if story:
-            self.result_label.setText(f"Mnemonic for '{word}':\n\n{story}")
+        result = get_mnemonic_story(word)
+        if result:
+            story, note = result
+            text = f"Mnemonic for '{word}':\n\n{story}"
+            if note:
+                text += f"\n\nNote:\n{note}"
+            self.result_label.setText(text)
         else:
             self.result_label.setText(f"No mnemonic story found for '{word}'.")
 
