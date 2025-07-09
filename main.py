@@ -2,26 +2,31 @@ import sys
 import sqlite3
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QTextEdit,
-    QPushButton, QVBoxLayout, QMessageBox, QTabWidget, QHBoxLayout
+    QPushButton, QVBoxLayout, QMessageBox, QTabWidget, QHBoxLayout, QFileDialog, QMenu
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QByteArray, QBuffer
+from PyQt5.QtGui import QPixmap, QImage
+import io
 
 DB_PATH = 'mnemonic.db'
 
 def get_random_word():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute('SELECT word, story, note FROM mnemonic_words ORDER BY RANDOM() LIMIT 1')
+    cursor.execute('SELECT word, story, note, image FROM mnemonic_words ORDER BY RANDOM() LIMIT 1')
     row = cursor.fetchone()
     conn.close()
     if row:
-        return row  # (word, story, note)
+        return row  # (word, story, note, image)
     return None
 
 class RandomWordTab(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+        
         self.word_label = QLabel("Random Word:")
         self.word_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #333;")
         self.word_display = QLabel("")
@@ -78,6 +83,7 @@ class RandomWordTab(QWidget):
         main_layout.addLayout(note_layout)
         main_layout.addStretch()
         main_layout.addWidget(self.next_btn, alignment=Qt.AlignRight)
+        main_layout.addWidget(self.image_label)
         self.setLayout(main_layout)
 
         self.load_random_word()
@@ -85,7 +91,7 @@ class RandomWordTab(QWidget):
     def load_random_word(self):
         result = get_random_word()
         if result:
-            word, story, note = result
+            word, story, note, image = result
             self.word_display.setText(word)
             self.story_display.setText(story)
             self.note_display.setText(note if note else "")
@@ -94,6 +100,12 @@ class RandomWordTab(QWidget):
             self.story_display.hide()
             self.note_label.hide()
             self.note_display.hide()
+            if image:
+                pixmap = QPixmap()
+                pixmap.loadFromData(image)
+                self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+            else:
+                self.image_label.clear()
         else:
             self.word_display.setText("No words found in database.")
             self.story_display.setText("")
@@ -103,6 +115,7 @@ class RandomWordTab(QWidget):
             self.story_display.hide()
             self.note_label.hide()
             self.note_display.hide()
+            self.image_label.clear()
 
     def toggle_details(self, checked):
         if checked:
@@ -117,6 +130,7 @@ class RandomWordTab(QWidget):
             self.story_display.hide()
             self.note_label.hide()
             self.note_display.hide()
+            
 def create_table():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -132,16 +146,18 @@ def create_table():
     columns = [col[1] for col in cursor.fetchall()]
     if 'note' not in columns:
         cursor.execute("ALTER TABLE mnemonic_words ADD COLUMN note TEXT")
+    if 'image' not in columns:
+        cursor.execute("ALTER TABLE mnemonic_words ADD COLUMN image BLOB")
     conn.commit()
     conn.close()
-
-def save_mnemonic(word, story, note):
+    
+def save_mnemonic(word, story, note, image_data=None):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO mnemonic_words (word, story, note) VALUES (?, ?, ?)",
-            (word, story, note)
+            "INSERT INTO mnemonic_words (word, story, note, image) VALUES (?, ?, ?, ?)",
+            (word, story, note, image_data)
         )
         conn.commit()
     except sqlite3.IntegrityError:
@@ -172,6 +188,11 @@ class InsertTab(QWidget):
         self.note_label = QLabel("Note:")
         self.note_input = QTextEdit()
 
+        self.image_label = QLabel("No image selected")
+        self.image_btn = QPushButton("Upload Image")
+        self.image_btn.clicked.connect(self.show_image_menu)
+        self.image_data = None
+
         self.submit_btn = QPushButton("Submit")
         self.submit_btn.clicked.connect(self.submit_form)
 
@@ -182,18 +203,57 @@ class InsertTab(QWidget):
         layout.addWidget(self.story_input)
         layout.addWidget(self.note_label)
         layout.addWidget(self.note_input)
+        layout.addWidget(self.image_btn)
+        layout.addWidget(self.image_label)
         layout.addWidget(self.submit_btn)
         self.setLayout(layout)
+        
+    def show_image_menu(self):
+        menu = QMenu()
+        upload_action = menu.addAction("Upload from File")
+        clipboard_action = menu.addAction("Paste from Clipboard")
+        action = menu.exec_(self.image_btn.mapToGlobal(self.image_btn.rect().bottomLeft()))
+        if action == upload_action:
+            self.upload_image()
+        elif action == clipboard_action:
+            self.paste_image_from_clipboard()
+
+    def upload_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Image", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        if file_path:
+            with open(file_path, "rb") as f:
+                self.image_data = f.read()
+            self.image_label.setText(f"Selected: {file_path.split('/')[-1]}")
+        else:
+            self.image_data = None
+            self.image_label.setText("No image selected")
+    
+    def paste_image_from_clipboard(self):
+        clipboard = QApplication.clipboard()
+        mime = clipboard.mimeData()
+        if mime.hasImage():
+            image = clipboard.image()
+            pixmap = QPixmap.fromImage(image)
+            ba = QByteArray()
+            buffer = QBuffer(ba)
+            buffer.open(QBuffer.WriteOnly)
+            pixmap.save(buffer, "PNG")
+            self.image_data = ba.data()
+            self.image_label.setText("Image pasted from clipboard")
+        else:
+            self.image_data = None
+            self.image_label.setText("No image in clipboard")
 
     def submit_form(self):
         word = self.word_input.text().strip()
         story = self.story_input.toPlainText().strip()
         note = self.note_input.toPlainText().strip()
+        image = self.image_data
         if not word or not story:
             QMessageBox.warning(self, "Input Error", "Please enter both word and story.")
             return
         try:
-            save_mnemonic(word, story, note)
+            save_mnemonic(word, story, note, image)
         except ValueError as e:
             QMessageBox.warning(self, "Error", str(e))
             return
@@ -202,7 +262,9 @@ class InsertTab(QWidget):
         self.word_input.clear()
         self.story_input.clear()
         self.note_input.clear()
-
+        self.image_data = None
+        self.image_label.setText("No image selected")
+        
 class SearchTab(QWidget):
     def __init__(self):
         super().__init__()
@@ -246,7 +308,7 @@ class MnemonicApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GRE Mnemonic Stories")
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 800, 600)
 
         self.tabs = QTabWidget()
         self.insert_tab = InsertTab()

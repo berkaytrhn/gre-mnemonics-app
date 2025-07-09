@@ -6,3 +6,8 @@
 ## Random Study Feature
 
 ![alt text](image.png)
+
+
+## Image adding feature
+
+![alt text](image-1.png)
