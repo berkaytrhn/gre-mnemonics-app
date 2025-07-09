@@ -90,8 +90,12 @@ class RandomWordTab(QWidget):
 
     def load_random_word(self):
         result = get_random_word()
-        if result:
+        word, story, note, image = result
+        while "QUANT" in story:
+            print("Found QUANT word in story, fetching another random word...")
+            result = get_random_word()
             word, story, note, image = result
+        if result:
             self.word_display.setText(word)
             self.story_display.setText(story)
             self.note_display.setText(note if note else "")
