@@ -282,6 +282,9 @@ class SearchTab(QWidget):
         self.result_label = QLabel("")
         self.result_label.setWordWrap(True)
 
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+
         top_layout = QHBoxLayout()
         top_layout.addWidget(self.word_label)
         top_layout.addWidget(self.word_input)
@@ -290,6 +293,7 @@ class SearchTab(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(top_layout)
         layout.addWidget(self.result_label)
+        layout.addWidget(self.image_label)
         self.setLayout(layout)
 
     def search_story(self):
@@ -298,15 +302,26 @@ class SearchTab(QWidget):
             QMessageBox.warning(self, "Input Error", "Please enter a word to search.")
             return
         
-        result = get_mnemonic_story(word)
-        if result:
-            story, note = result
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute('SELECT story, note, image FROM mnemonic_words WHERE word = ?', (word,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            story, note, image = row
             text = f"Mnemonic for '{word}':\n\n{story}"
             if note:
                 text += f"\n\nNote:\n{note}"
             self.result_label.setText(text)
+            if image:
+                pixmap = QPixmap()
+                pixmap.loadFromData(image)
+                self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+            else:
+                self.image_label.clear()
         else:
             self.result_label.setText(f"No mnemonic story found for '{word}'.")
+            self.image_label.clear()
 
 class MnemonicApp(QWidget):
     def __init__(self):
