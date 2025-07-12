@@ -140,6 +140,13 @@ class RandomWordTab(QWidget):
     def __init__(self):
         super().__init__()
 
+        self.last_words = []
+        self.max_repeat = 2
+
+        self.reset_btn = QPushButton("Reset")
+        self.reset_btn.setStyleSheet("font-size: 12px; padding: 6px 12px;")
+        self.reset_btn.clicked.connect(self.reset_history)
+
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignCenter)
         
@@ -200,11 +207,61 @@ class RandomWordTab(QWidget):
         main_layout.addStretch()
         main_layout.addWidget(self.next_btn, alignment=Qt.AlignRight)
         main_layout.addWidget(self.image_label)
+        main_layout.addWidget(self.reset_btn, alignment=Qt.AlignLeft)
+
         self.setLayout(main_layout)
 
         self.load_random_word()
-
+        
+    def reset_history(self):
+        self.last_words = []
+        
+        
     def load_random_word(self):
+        tries = 0
+        while True:
+            result = get_random_word()
+            if not result:
+                self.word_display.setText("No words found in database.")
+                self.story_display.setText("")
+                self.note_display.setText("")
+                self.toggle_btn.setChecked(False)
+                self.story_label.hide()
+                self.story_display.hide()
+                self.note_label.hide()
+                self.note_display.hide()
+                self.image_label.clear()
+                return
+            word, story, note, image = result
+            while "QUANT" in story:
+                print("Found QUANT word in story, fetching another random word...")
+                result = get_random_word()
+                word, story, note, image = result
+            if self.last_words.count(word) < self.max_repeat:
+                break
+            tries += 1
+            if tries > 10:  # Prevent infinite loop if few words in db
+                break
+
+        self.last_words.append(word)
+        if len(self.last_words) > self.max_repeat:
+            self.last_words = self.last_words[-self.max_repeat:]
+
+        self.word_display.setText(word)
+        self.story_display.setText(story)
+        self.note_display.setText(note if note else "")
+        self.toggle_btn.setChecked(False)
+        self.story_label.hide()
+        self.story_display.hide()
+        self.note_label.hide()
+        self.note_display.hide()
+        if image:
+            pixmap = QPixmap()
+            pixmap.loadFromData(image)
+            self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+        else:
+            self.image_label.clear()
+    def __oad_random_word(self):
         result = get_random_word()
         word, story, note, image = result
         while "QUANT" in story:
