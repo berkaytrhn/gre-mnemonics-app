@@ -20,6 +20,122 @@ def get_random_word():
         return row  # (word, story, note, image)
     return None
 
+class RandomQuantTab(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.image_label = QLabel()
+        self.image_label.setAlignment(Qt.AlignCenter)
+
+        self.word_label = QLabel("Random Quant Word:")
+        self.word_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #333;")
+        self.word_display = QLabel("")
+        self.word_display.setStyleSheet("font-size: 28px; font-weight: bold; color: #e26a2a; padding: 12px; border: 2px solid #e26a2a; border-radius: 8px; background: #fff7f0;")
+        self.word_display.setAlignment(Qt.AlignCenter)
+
+        self.toggle_btn = QPushButton("Show Story & Note")
+        self.toggle_btn.setCheckable(True)
+        self.toggle_btn.setStyleSheet("font-size: 14px; padding: 8px 16px;")
+        self.toggle_btn.toggled.connect(self.toggle_details)
+
+        self.story_label = QLabel("Mnemonic Story:")
+        self.story_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #444;")
+        self.story_display = QLabel("")
+        self.story_display.setWordWrap(True)
+        self.story_display.setStyleSheet("font-size: 14px; background: #fff9f6; border: 1px solid #e2c6b8; border-radius: 6px; padding: 8px;")
+        self.story_label.hide()
+        self.story_display.hide()
+
+        self.note_label = QLabel("Note:")
+        self.note_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #444;")
+        self.note_display = QLabel("")
+        self.note_display.setWordWrap(True)
+        self.note_display.setStyleSheet("font-size: 13px; background: #f6f6f6; border: 1px dashed #aaa; border-radius: 6px; padding: 8px; color: #555;")
+        self.note_label.hide()
+        self.note_display.hide()
+
+        self.next_btn = QPushButton("Next Quant Word")
+        self.next_btn.setStyleSheet("font-size: 14px; padding: 8px 16px; background: #e26a2a; color: white; border-radius: 6px;")
+        self.next_btn.clicked.connect(self.load_random_quant_word)
+
+        # Layouts for better spacing
+        word_layout = QVBoxLayout()
+        word_layout.addWidget(self.word_label)
+        word_layout.addWidget(self.word_display)
+
+        toggle_layout = QHBoxLayout()
+        toggle_layout.addStretch()
+        toggle_layout.addWidget(self.toggle_btn)
+        toggle_layout.addStretch()
+
+        story_layout = QVBoxLayout()
+        story_layout.addWidget(self.story_label)
+        story_layout.addWidget(self.story_display)
+
+        note_layout = QVBoxLayout()
+        note_layout.addWidget(self.note_label)
+        note_layout.addWidget(self.note_display)
+
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(word_layout)
+        main_layout.addLayout(toggle_layout)
+        main_layout.addLayout(story_layout)
+        main_layout.addLayout(note_layout)
+        main_layout.addStretch()
+        main_layout.addWidget(self.next_btn, alignment=Qt.AlignRight)
+        main_layout.addWidget(self.image_label)
+        self.setLayout(main_layout)
+
+        self.load_random_quant_word()
+
+    def load_random_quant_word(self):
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT word, story, note, image FROM mnemonic_words WHERE story GLOB '*QUANT*' ORDER BY RANDOM() LIMIT 1")        
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            word, story, note, image = row
+            self.word_display.setText(word)
+            self.story_display.setText(story)
+            self.note_display.setText(note if note else "")
+            self.toggle_btn.setChecked(False)
+            self.story_label.hide()
+            self.story_display.hide()
+            self.note_label.hide()
+            self.note_display.hide()
+            if image:
+                pixmap = QPixmap()
+                pixmap.loadFromData(image)
+                self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
+            else:
+                self.image_label.clear()
+        else:
+            self.word_display.setText("No QUANT words found in database.")
+            self.story_display.setText("")
+            self.note_display.setText("")
+            self.toggle_btn.setChecked(False)
+            self.story_label.hide()
+            self.story_display.hide()
+            self.note_label.hide()
+            self.note_display.hide()
+            self.image_label.clear()
+
+    def toggle_details(self, checked):
+        if checked:
+            self.toggle_btn.setText("Hide Story & Note")
+            self.story_label.show()
+            self.story_display.show()
+            self.note_label.show()
+            self.note_display.show()
+        else:
+            self.toggle_btn.setText("Show Story & Note")
+            self.story_label.hide()
+            self.story_display.hide()
+            self.note_label.hide()
+            self.note_display.hide()
+
+
 class RandomWordTab(QWidget):
     def __init__(self):
         super().__init__()
@@ -333,10 +449,12 @@ class MnemonicApp(QWidget):
         self.insert_tab = InsertTab()
         self.search_tab = SearchTab()
         self.random_tab = RandomWordTab()
+        self.quant_tab = RandomQuantTab()
 
         self.tabs.addTab(self.insert_tab, "Add Mnemonic")
         self.tabs.addTab(self.search_tab, "Search Mnemonic")
         self.tabs.addTab(self.random_tab, "Random Word")
+        self.tabs.addTab(self.quant_tab, "Random Quant")
 
         layout = QVBoxLayout()
         layout.addWidget(self.tabs)
