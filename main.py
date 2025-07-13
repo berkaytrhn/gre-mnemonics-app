@@ -261,39 +261,7 @@ class RandomWordTab(QWidget):
             self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
         else:
             self.image_label.clear()
-    def __oad_random_word(self):
-        result = get_random_word()
-        word, story, note, image = result
-        while "QUANT" in story:
-            print("Found QUANT word in story, fetching another random word...")
-            result = get_random_word()
-            word, story, note, image = result
-        if result:
-            self.word_display.setText(word)
-            self.story_display.setText(story)
-            self.note_display.setText(note if note else "")
-            self.toggle_btn.setChecked(False)
-            self.story_label.hide()
-            self.story_display.hide()
-            self.note_label.hide()
-            self.note_display.hide()
-            if image:
-                pixmap = QPixmap()
-                pixmap.loadFromData(image)
-                self.image_label.setPixmap(pixmap.scaledToWidth(200, Qt.SmoothTransformation))
-            else:
-                self.image_label.clear()
-        else:
-            self.word_display.setText("No words found in database.")
-            self.story_display.setText("")
-            self.note_display.setText("")
-            self.toggle_btn.setChecked(False)
-            self.story_label.hide()
-            self.story_display.hide()
-            self.note_label.hide()
-            self.note_display.hide()
-            self.image_label.clear()
-
+            
     def toggle_details(self, checked):
         if checked:
             self.toggle_btn.setText("Hide Story & Note")
